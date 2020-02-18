@@ -20,10 +20,11 @@ SZ = $(GCC_PATH)/$(PREFIX)size.exe
 AVRDUDE := $(GCC_PATH)/avrdude.exe
 
 #Options for avr-gcc
-CFLAGS = -O3 -Werror -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -g2 -Wall
+CFLAGS = -O1 -ffunction-sections -fdata-sections -fpack-struct\
+-fshort-enums -g2 -Wall -Wpedantic -Wextra -Werror
 
 #Linking options for avr-gcc
-LFLAGS = -O3 -mmcu=$(MCU) -Wl,--gc-sections
+LFLAGS = -O1 -mmcu=$(MCU) -Wl,--gc-sections
 
 #Options for HEX file generation
 HFLAGS = -j .text -j .data -O ihex
@@ -45,7 +46,7 @@ INCLUDE = -I.
 INCLUDE += 
 
 
-all : $(BUILD_DIR)/$(TARGET).elf	
+all: $(BUILD_DIR)/$(TARGET).elf	
 	$(OBJCOPY) $(HFLAGS) $< $(BUILD_DIR)/$(TARGET).hex
 	$(OBJDUMP) -h -S $< > $(BUILD_DIR)/$(TARGET).lss
 	
@@ -64,9 +65,7 @@ $(BUILD_DIR):
 # 	@echo $(CC)
 
 
-#######################################
-# clean up
-#######################################
+
 .PHONY: clean
 clean:
 	-rm -fR $(BUILD_DIR)
