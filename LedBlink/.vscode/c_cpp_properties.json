@@ -3,7 +3,7 @@
         {
             "name": "avr-gcc",
             "includePath": [
-                "${workspaceFolder}/**",
+                "${workspaceFolder}/**"
             ],
             "defines": [
                 "__AVR_ATmega32U4__",
