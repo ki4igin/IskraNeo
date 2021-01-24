@@ -3,20 +3,31 @@
     // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
-        {            
-            "label": "build",
+        {
+            "label": "build release",
             "type": "shell",
             "command": "make",
             "args": [
-                "GCC_PATH=/mnt/c/toolchain/avr-gcc-9.2.0-x64-mingw/bin",
-                "-s",
-                "-j"
+                "all",
+                "GCC_PATH=C:/toolchain/avr-gcc-9.2.0-x64-mingw/bin",
+                "-s"
             ],
-            "options": {
-                "shell": {
-                    "executable": "wsl.exe"
-                }
+            "group": {
+                "kind": "build",
+                "isDefault": true
             },
+            "problemMatcher": []
+        },
+        {
+            "label": "build debug",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "all",
+                "GCC_PATH=C:/toolchain/avr-gcc-9.2.0-x64-mingw/bin",
+                "DEBUG=1",
+                "-s"
+            ],
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -31,37 +42,33 @@
                 "-s",
                 "clean"
             ],
-            "options": {
-                "shell": {
-                    "executable": "wsl.exe"
-                }
-            },
             "group": {
                 "kind": "build",
                 "isDefault": true
-            },
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": true,
-                "clear": false
             }
         },
         {
-            "label": "flash",
+            "label": "MCU Flash Debug",
             "type": "shell",
             "command": "make",
             "args": [
-                "GCC_PATH=/mnt/c/toolchain/avr-gcc-9.2.0-x64-mingw/bin",
+                "GCC_PATH=C:/toolchain/avr-gcc-9.2.0-x64-mingw/bin",
+                "flash",
+                "DEBUG=1"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "MCU Flash Release",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "GCC_PATH=C:/toolchain/avr-gcc-9.2.0-x64-mingw/bin",
                 "flash"
             ],
-            "options": {
-                "shell": {
-                    "executable": "wsl.exe"
-                }
-            },
             "group": {
                 "kind": "build",
                 "isDefault": true

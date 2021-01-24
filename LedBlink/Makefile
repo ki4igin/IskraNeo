@@ -1,77 +1,198 @@
-#Main application file name
-TARGET = LedBlink
-#Main hex file path in windows format
-BUILD_DIR = build
+###############################################################################
+# Main application file name
+###############################################################################
+TARGET = $(notdir $(shell pwd))
 
-MAIN_HEX_PATH = $(BUILD_DIR)/$(TARGET).hex
 
-MCU = atmega32u4
+###############################################################################
+# Build path
+###############################################################################
+ifeq ($(DEBUG), 1)
+BUILD_DIR := build/debug
+else
+BUILD_DIR := build/release
+endif
 
-# Compiler and other Section
+###############################################################################
+# Source
+###############################################################################
+# Defines
+C_DEFINES := __AVR_ATmega32U4__
+C_DEFINES += F_CPU=8000000
 
-GCC_PATH = /mnt/c/toolchain/avr-gcc-9.2.0-x64-mingw/bin
-# GCC_PATH = C:/toolchain/avr-gcc-9.2.0-x64-mingw/bin
-PREFIX = avr-
 
-CC = $(GCC_PATH)/$(PREFIX)gcc.exe
-OBJCOPY = $(GCC_PATH)/$(PREFIX)objcopy.exe
-OBJDUMP = $(GCC_PATH)/$(PREFIX)objdump.exe
-SZ = $(GCC_PATH)/$(PREFIX)size.exe
-AVRDUDE := $(GCC_PATH)/avrdude.exe
+# C includes
+INCLUDES:= $(shell find code -type d)
 
-#Options for avr-gcc
-CFLAGS = -O1 -ffunction-sections -fdata-sections -fpack-struct\
--fshort-enums -g2 -Wall -Wpedantic -Wextra -Werror
+# ASM sources
+A_SOURCES := $(wildcard $(addsuffix /*.s, $(INCLUDES)))
 
-#Linking options for avr-gcc
-LFLAGS = -O1 -mmcu=$(MCU) -Wl,--gc-sections
+# C sources
+C_SOURCES := $(wildcard $(addsuffix /*.c, $(INCLUDES)))
 
-#Options for HEX file generation
-HFLAGS = -j .text -j .data -O ihex
 
+
+
+
+
+
+
+###############################################################################
+# Compilers and Utilities binaries
+###############################################################################
+PREFIX := avr-
+# The gcc compiler bin path (default: current folder)
+ifndef GCC_PATH
+GCC_PATH := C:/toolchain/avr-gcc-9.2.0-x64-mingw/bin
+endif
+AS 		:= $(GCC_PATH)/$(PREFIX)gcc -xassembler-with-cpp
+CC 		:= $(GCC_PATH)/$(PREFIX)gcc
+OBJCOPY := $(GCC_PATH)/$(PREFIX)objcopy
+OBJDUMP := $(GCC_PATH)/$(PREFIX)objdump
+SZ 		:= $(GCC_PATH)/$(PREFIX)size
+AVRDUDE := $(GCC_PATH)/avrdude
+
+###############################################################################
+# CFLAGS
+###############################################################################
+# MCU
+MCU := -mmcu=atmega32u4
+
+# Optimization and Debug level
+ifeq ($(DEBUG), 1)
+C_DEFINES += DEBUG
+OPT := -O1 -g -gdwarf-2
+else
+OPT := -Os
+endif
+
+# Compile gcc flags
+FLAGS := $(OPT)
+FLAGS += $(MCU)
+FLAGS += -ffunction-sections
+FLAGS += -fdata-sections
+FLAGS += -fshort-enums
+FLAGS += -funsigned-char
+# FLAGS += -fshort-wchar
+
+# Peels loops for which there is enough information that they do not roll much
+# (from profile feedback or static analysis). It also turns on complete loop
+# peeling (i.e. complete removal of loops with small constant number of iterations).
+FLAGS += -fpeel-loops # Работает на O1 и выше
+
+# FLAGS += -fpack-struct
+FLAGS += -std=gnu17
+# FLAGS += -fms-extensions
+# FLAGS += -flto
+FLAGS += -Winline -Wall -Wextra -Wpedantic #-Werror 
+FLAGS += -Wdouble-promotion -Wundef
+# FLAGS += -Wconversion
+FLAGS += -fstack-usage -Wstack-usage=255
+
+AFLAGS := $(FLAGS)
+
+CFLAGS := $(FLAGS)
+CFLAGS += -MMD -MP
+CFLAGS += $(addprefix -D, $(C_DEFINES)) $(addprefix -I, $(INCLUDES)) 
+
+
+###############################################################################
+# LFLAGS
+###############################################################################
+LFLAGS := $(MCU)
+LFLAGS += -Wl,--gc-sections
+LFLAGS += -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref 
+
+
+###############################################################################
+# HFLAGS
+###############################################################################
+HFLAGS := -j .text -j .data -O ihex
+
+###############################################################################
 #Options for avrdude to burn the hex file
 #MMCU model here according to avrdude options
-DUDEFLAGS = -c avr109
+###############################################################################
+MAIN_HEX_PATH = $(BUILD_DIR)/$(TARGET).hex
+DUDEFLAGS := -c avr109
 DUDEFLAGS += -p m32u4  
-DUDEFLAGS += -P COM4
+DUDEFLAGS += -P COM3
 DUDEFLAGS += -b 1200
 DUDEFLAGS += -U flash:w:$(MAIN_HEX_PATH):i
 
-# Sources files needed for building the application 
-SRC = main.c
-SRC += 
 
-# The headers files needed for building the application
-INCLUDE = -I. 
-INCLUDE += 
+###############################################################################
+# build the application
+###############################################################################
+OBJECTS := $(addprefix $(BUILD_DIR)/, $(notdir $(C_SOURCES:.c=.o)))
+OBJECTS += $(addprefix $(BUILD_DIR)/, $(notdir $(A_SOURCES:.s=.o)))
+vpath %.c $(sort $(INCLUDES))
+vpath %.s $(sort $(INCLUDES))
 
 
-all: $(BUILD_DIR)/$(TARGET).elf	
-	$(OBJCOPY) $(HFLAGS) $< $(BUILD_DIR)/$(TARGET).hex
-	$(OBJDUMP) -h -S $< > $(BUILD_DIR)/$(TARGET).lss
+# Build all
+all: build
+	@echo
+	$(SZ) $(BUILD_DIR)/$(TARGET).elf #-G
+	@echo
+	@echo -e "\033[32;1;40m""Listing:""\033[0m" $(BUILD_DIR)/$(TARGET).lss
+
+build: info $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).hex $(BUILD_DIR)/$(TARGET).lss
 	
-$(BUILD_DIR)/$(TARGET).elf: $(BUILD_DIR)/main.o
+$(BUILD_DIR)/$(TARGET).elf: $(OBJECTS) Makefile	
+	$(CC) $(OBJECTS) $(LFLAGS) -o $@
+	
+	
+$(BUILD_DIR)/%.lss: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
+	$(OBJDUMP) -S $< > $@
+
+$(BUILD_DIR)/%.hex: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
+	$(OBJCOPY) $(HFLAGS) $< $@
+
+$(BUILD_DIR)/%.o: %.c Makefile | $(BUILD_DIR)
 	@echo $<
-	$(CC) $< $(INCLUDE) $(LFLAGS) -o $@
-	$(SZ) $@
+	$(CC) -c $(CFLAGS) $< -o $@	
+
+$(BUILD_DIR)/%.o: %.s Makefile | $(BUILD_DIR)
+	@echo $<
+	$(AS) -c $(AFLAGS) $< -o $@
 	 
-$(BUILD_DIR)/main.o: code/main.c Makefile | $(BUILD_DIR)
-	@echo $<
-	$(CC) -c $< $(CFLAGS) -o $@
-
 $(BUILD_DIR):
-	mkdir $@
-# main:
-# 	@echo $(CC)
+	mkdir -p $@
 
-
-
+###############################################################################
+# clean up
+###############################################################################
 .PHONY: clean
 clean:
-	-rm -fR $(BUILD_DIR)
-  
-# commands Section
+	@echo -rm -fR $(dir $(BUILD_DIR))
+	-rm -fR $(dir $(BUILD_DIR))
+
+###############################################################################
+# Flash
+###############################################################################
 .PHONY: flash
 flash : 	
 	$(AVRDUDE) $(DUDEFLAGS)
 
+###############################################################################
+# Info
+###############################################################################
+info:
+	@echo -e "\033[32;1;40m""Compiler version:""\033[0m"
+	$(CC) --version
+	@echo -e "\033[32;1;40m""Compile flags:""\033[0m" $(FLAGS)
+	@echo -e "\033[32;1;40m""Linking flags:""\033[0m" $(LFLAGS)
+	@echo
+	# @echo $(OBJECTS)
+	# @echo 
+
+.PHONY: test
+test : 	
+	@echo ${A_SOURCES}
+	
+###############################################################################
+# dependencies
+###############################################################################
+-include $(wildcard $(BUILD_DIR)/*.d)
+###############################################################################
